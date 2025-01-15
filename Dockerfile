@@ -14,7 +14,7 @@ WORKDIR /app
 RUN addgroup --system immich-import-control && \
           adduser --system -G immich-import-control immich-import-control
 
-COPY dist/apps/immich-import-control immich-import-control/
+COPY dist/immich-import-control immich-import-control/
 RUN chown -R immich-import-control:immich-import-control .
 
 # You can remove this install step if you build with `--bundle` option.

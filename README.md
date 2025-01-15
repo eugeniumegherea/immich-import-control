@@ -1,101 +1,69 @@
-# ImmichImportControl
+# Immich Import Control
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Run at most one job at a time on a device with limited resources. Start automatically if there's new media to process and run through the processing pipeline until all media is processed.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+## Problem
+I am running immich on Beelink s12 pro (intel n100 cpu and 16GB of ram). If it runs all jobs at the same time, cpu spikes and docker will restart immich containers because health check will start failing. This becomes very unusable very quickly.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/node?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+To solve this, I've written a simple orchestrator that will pause and resume jobs until all media is processed. For best results, concurrency in immich should be set in such a way to maximize a single job processing speed and yet to not overwhelm the system.
 
-## Run tasks
 
-To run the dev server for your app, use:
+## How it works
 
-```sh
-npx nx serve immich-import-control
+First of all, it will call immich API to pause all jobs when this app starts.
+
+Every 30 seconds we will be calling `/api/jobs/` to get current job status.
+It will understand based on `metadataExtraction` value if immich has new media to ingest. (it is always a nonzero value if there's new media to process)
+
+If we have new media to process, it will start running through the pipeline in this order:
+```
+Library
+Sidecar
+Metadata Extraction
+Smart Search
+Duplicate Detection
+Face Detection
+Facial Recognition
+Thumbnail Generation
+Video Conversion
 ```
 
-To create a production bundle:
+First it will resume library job, wait for 30 seconds and check if it has finished. If it has, it will resume sidecar job and so on. The application will check every 30 seconds for the job to finish and then resume the next job in the pipeline until all of the pipeline is finished. Then it will wait again for new media to become available.
 
-```sh
-npx nx build immich-import-control
+
+## Getting Started
+
+Add new container definition to docker-compose.yml file:
+```yaml
+services:
+  immich-server:
+    ...
+
+  immich-import-control:
+    image: docker.io/eugeniumegherea/immich-import-control:latest
+    container_name: immich-import-control
+    environment:
+      SERVER_URL: http://immich-server:2283
+      API_KEY: immich-api-key
+    restart: always
+    depends_on:
+      - immich-server
 ```
 
-To see all available targets to run for a project, run:
-
-```sh
-npx nx show project immich-import-control
+And restart the docker-compose stack:
+```bash
+docker-compose up -d
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+## Running locally
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Add new projects
-
-While you could add new projects to your workspace manually, you might want to leverage [Nx plugins](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) and their [code generation](https://nx.dev/features/generate-code?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) feature.
-
-Use the plugin's generator to create new projects.
-
-To generate a new application, use:
-
-```sh
-npx nx g @nx/node:app demo
+Create a `.env` file with the following content:
+```bash
+API_KEY=immich_api_key
+SERVER_URL=http://<local_ip_address>:2283
 ```
 
-To generate a new library, use:
-
-```sh
-npx nx g @nx/node:lib mylib
+Then run the following command:
+```bash
+npx nx serve
 ```
-
-You can use `npx nx list` to get a list of installed plugins. Then, run `npx nx list <plugin-name>` to learn about more specific capabilities of a particular plugin. Alternatively, [install Nx Console](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) to browse plugins and generators in your IDE.
-
-[Learn more about Nx plugins &raquo;](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) | [Browse the plugin registry &raquo;](https://nx.dev/plugin-registry?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Set up CI!
-
-### Step 1
-
-To connect to Nx Cloud, run the following command:
-
-```sh
-npx nx connect
-```
-
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/nx-api/node?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
