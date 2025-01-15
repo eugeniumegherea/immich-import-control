@@ -6,6 +6,8 @@
 # Run the container with `docker run -p 3000:3000 -t immich-import-control`.
 FROM docker.io/node:lts-alpine
 
+LABEL org.opencontainers.image.source=https://github.com/eugeniumegherea/immich-import-control
+
 ENV HOST=0.0.0.0
 ENV PORT=3000
 

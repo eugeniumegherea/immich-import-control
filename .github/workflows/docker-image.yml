@@ -19,7 +19,7 @@ jobs:
         npx nx build
     - name: Get version from package.json
       id: get-version
-      run: echo "VERSION=$(node -p \"require('./package.json').version\")" >> $GITHUB_ENV
+      run: echo "VERSION=$(cat ${PACKAGE_JSON_PATH}/package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
 
     - name: Build the Docker image
       run: |

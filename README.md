@@ -40,7 +40,7 @@ services:
     ...
 
   immich-import-control:
-    image: docker.io/eugeniumegherea/immich-import-control:latest
+    image: ghcr.io/eugeniumegherea/immich-import-control:latest
     container_name: immich-import-control
     environment:
       SERVER_URL: http://immich-server:2283
